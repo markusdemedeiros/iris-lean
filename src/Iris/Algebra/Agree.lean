@@ -147,7 +147,7 @@ theorem Agree.op_inv {x y : Agree α} : (x.op y).valid → x ≡ y := by
   intros h n
   exact op_invN (h n)
 
-instance : CMRA (Agree α) where
+instance Agree_CMRA : CMRA (Agree α) where
   pcore := some
   op := Agree.op
   ValidN := Agree.validN
@@ -385,3 +385,45 @@ theorem Agree.agree_map_ext {g : α → β} [OFE.NonExpansive g] (heq : ∀ a, f
     exact ⟨(by exists a), OFE.Equiv.dist (heq a)⟩
 
 end agree_map
+
+theorem Agree.toAgree.is_discrete {a : α} (Ha : OFE.DiscreteE a) : OFE.DiscreteE (toAgree a) := by
+  simp [toAgree]
+  intro y Ha _
+  cases y
+  rcases Ha with ⟨Hal, Har⟩
+  constructor <;> simp_all
+  · rcases Hal with ⟨b, Hb1, Hb2⟩
+    refine ⟨b, ⟨Hb1, ?_⟩⟩
+    exact OFE.Equiv.dist (Ha (Har b Hb1))
+  · intro H Hb
+    exact OFE.Equiv.dist (Ha (Har H Hb))
+
+open OFE OFE.Discrete in
+instance [OFE α] [OFE.Discrete α] : OFE.Discrete (Agree α) where
+  discrete_0 {x y} H := by
+    intro n
+    constructor
+    · intro a Ha
+      rcases H.1 a Ha with ⟨c, Hc⟩
+      refine ⟨c, ⟨Hc.1, ?_⟩⟩
+      apply equiv_dist.mp <| discrete_0 (Dist.le Hc.2 <| Nat.zero_le 0)
+    · intro b Hb
+      rcases H.2 b Hb with ⟨c, Hc⟩
+      refine ⟨c, ⟨Hc.1, ?_⟩⟩
+      apply equiv_dist.mp <| discrete_0 (Dist.le Hc.2 <| Nat.zero_le 0)
+
+instance toAgree.ne [OFE α] : OFE.NonExpansive (toAgree : α → Agree α) where
+  ne n x y H := by
+    simp [toAgree]
+    constructor
+    · intro a Ha; exists y
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at Ha
+      simp only [List.mem_cons, List.not_mem_nil, or_false, true_and]
+      exact Ha ▸ H
+    · intro b Hb; exists x
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at Hb
+      simp only [List.mem_cons, List.not_mem_nil, or_false, true_and]
+      exact Hb ▸ H
+
+theorem toAgree.inj {a1 a2 : α} {n} (H : toAgree a1 ≡{n}≡ toAgree a2) : a1 ≡{n}≡ a2 := by
+  rcases H.1 a1 (by simp [toAgree]) with ⟨_, ⟨_, _⟩⟩; simp_all [toAgree]
