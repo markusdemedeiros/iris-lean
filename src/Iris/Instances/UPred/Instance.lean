@@ -509,6 +509,12 @@ theorem ownM_always_invalid_elim (m : M) (H : ∀ n, ¬✓{n} m) : (validInterna
 
 instance : BIAffine (UPred M) := ⟨by infer_instance⟩
 
--- TODO: Port derived lemmas
+theorem pure_soundness : iprop(True ⊢ (⌜P⌝ : UPred M)) → P :=
+  (· 0 _ CMRA.unit_validN ⟨⟩)
+
+theorem later_soundness : iprop(True ⊢ ▷ P) → iprop((True : UPred M) ⊢ P) := by
+  intro HP n x _ H
+  refine UPred.mono _ ?_ CMRA.incN_unit (Nat.le_refl _)
+  exact HP n.succ _ CMRA.unit_validN H
 
 end UPred
