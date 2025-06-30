@@ -115,7 +115,7 @@ theorem LocalUpdate.discrete [CMRA.Discrete α] (x y x' y' : α) :
       have ⟨vx', e⟩ := h 0 mz vx.validN e.dist
       ⟨CMRA.Discrete.discrete_valid vx', OFE.discrete_0 e⟩)
     (fun h n mz vx e =>
-      have ⟨vx', e'⟩ := h mz ((CMRA.valid_iff_validN' n).mpr vx) (OFE.discrete_n e)
+      have ⟨vx', e'⟩ := h mz ((CMRA.valid_iff_validN' n).mpr vx) (OFE.discrete e)
       ⟨CMRA.Valid.validN vx', e'.dist⟩)
 
 theorem LocalUpdate.valid0 (x y x' y' : α)
@@ -167,7 +167,7 @@ theorem local_update_unital_discrete [CMRA.Discrete α] (x y x' y' : α) :
     ⟨CMRA.discrete_valid vx', OFE.discrete_0 e'⟩
   mpr h :=
     have h' n z vnx e : (✓{n} x' ∧ x' ≡{n}≡ y' • z) :=
-      have ⟨vx', e'⟩ := h z ((CMRA.valid_iff_validN' n).mpr vnx) (OFE.discrete_n e)
+      have ⟨vx', e'⟩ := h z ((CMRA.valid_iff_validN' n).mpr vnx) (OFE.discrete e)
       ⟨CMRA.Valid.validN vx', OFE.Equiv.dist e'⟩
     (local_update_unital x y x' y').mpr h'
 

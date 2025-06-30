@@ -386,7 +386,7 @@ theorem Agree.agree_map_ext {g : α → β} [OFE.NonExpansive g] (heq : ∀ a, f
 
 end agree_map
 
-theorem Agree.toAgree.is_discrete {a : α} (Ha : OFE.DiscreteE a) : OFE.DiscreteE (toAgree a) := by
+theorem Agree.toAgree.is_discrete {a : α} [OFE α] (Ha : OFE.DiscreteE a) : OFE.DiscreteE (toAgree a) := by
   simp [toAgree]
   intro y Ha _
   cases y
@@ -425,5 +425,5 @@ instance toAgree.ne [OFE α] : OFE.NonExpansive (toAgree : α → Agree α) wher
       simp only [List.mem_cons, List.not_mem_nil, or_false, true_and]
       exact Hb ▸ H
 
-theorem toAgree.inj {a1 a2 : α} {n} (H : toAgree a1 ≡{n}≡ toAgree a2) : a1 ≡{n}≡ a2 := by
+theorem toAgree.inj {a1 a2 : α} [OFE α]{n} (H : toAgree a1 ≡{n}≡ toAgree a2) : a1 ≡{n}≡ a2 := by
   rcases H.1 a1 (by simp [toAgree]) with ⟨_, ⟨_, _⟩⟩; simp_all [toAgree]
