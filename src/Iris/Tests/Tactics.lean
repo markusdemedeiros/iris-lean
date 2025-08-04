@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2022 Lars König. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Lars König
+Authors: Lars König, Oliver Soeser
 -/
 import Iris.BI
 import Iris.ProofMode
@@ -177,6 +177,63 @@ theorem lean_pure [BI PROP] (Q : PROP) : <affine> ⌜⊢ Q⌝ ⊢ Q := by
   iassumption
 
 end assumption
+
+-- apply
+namespace apply
+
+theorem exact [BI PROP] (Q : PROP) : Q ⊢ Q := by
+  iintro HQ
+  iapply HQ
+
+theorem apply [BI PROP] (P Q : PROP) : ⊢ P -∗ (P -∗ Q) -∗ Q := by
+  iintro HP H
+  iapply H
+  iexact HP
+
+theorem multiple [BI PROP] (P Q R : PROP) : ⊢ P -∗ Q -∗ (P -∗ Q -∗ R) -∗ R := by
+  iintro HP HQ H
+  iapply H with HP
+  · iexact HP
+  · iexact HQ
+
+theorem multiple' [BI PROP] (P Q R S : PROP) : ⊢ (P -∗ Q) -∗ P -∗ R -∗ (Q -∗ R -∗ S) -∗ S := by
+  iintro HPQ HP HR H
+  iapply H with [HPQ, HP]
+  · iapply HPQ
+    iexact HP
+  · iexact HR
+
+theorem exact_intuitionistic [BI PROP] (Q : PROP) : □ Q ⊢ Q := by
+  iintro □HQ
+  iapply HQ
+
+theorem apply_intuitionistic [BI PROP] (P Q : PROP) : ⊢ □ P -∗ (P -∗ Q) -∗ Q := by
+  iintro HP H
+  iapply H
+  iexact HP
+
+theorem multiple_intuitionistic [BI PROP] (P Q R : PROP) : ⊢ □ P -∗ Q -∗ □ (P -∗ Q -∗ □ R) -∗ R := by
+  iintro □HP HQ □H
+  iapply H with _, HQ
+  . iexact HP
+  . iexact HQ
+
+theorem later [BI PROP] (P Q : PROP) : ⊢ (▷ P -∗ Q) -∗ P -∗ Q := by
+  iintro H HP
+  iapply H
+  iexact HP
+
+theorem affine [BI PROP] [BIAffine PROP] (P Q : PROP) : ⊢ (P → Q) -∗ <pers> P -∗ Q := by
+  iintro H HP
+  iapply H
+  iexact HP
+
+theorem later_affine [BI PROP] [BIAffine PROP] (P Q : PROP) : ⊢ (▷ P → Q) -∗ P -∗ Q := by
+  iintro H HP
+  iapply H
+  iexact HP
+
+end apply
 
 -- ex falso
 namespace exfalso
