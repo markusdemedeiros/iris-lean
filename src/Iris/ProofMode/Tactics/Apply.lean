@@ -9,13 +9,16 @@ import Iris.ProofMode.Tactics.Split
 namespace Iris.ProofMode
 open Lean Elab Tactic Meta Qq BI Std
 
-theorem apply [BI PROP] {R P' P1 P2 : PROP}
-    (h : P' ⊢ P1) [inst : IntoWand false false R P1 P2] : P' ∗ R ⊢ P2 :=
+theorem apply [BI PROP] {P Q1 Q2 R : PROP}
+    (h : P ⊢ Q1) [inst : IntoWand false false R Q1 Q2] : P ∗ R ⊢ Q2 :=
   (sep_mono h inst.1).trans wand_elim_r
 
-theorem rec_apply [BI PROP] {el er el' er' A1 A2 : PROP}
-    (h1 : el ⊣⊢ el' ∗ er') (h2 : er' ⊢ A1) [IntoWand false false er A1 A2] : el ∗ er ⊢ el' ∗ A2 :=
+theorem rec_apply [BI PROP] {P Q P' Q' Q1 Q2 : PROP}
+    (h1 : P ⊣⊢ P' ∗ Q') (h2 : Q' ⊢ Q1) [IntoWand false false Q Q1 Q2] : P ∗ Q ⊢ P' ∗ Q2 :=
   (sep_congr h1 .rfl).mp.trans <| sep_assoc.mp.trans <| sep_mono_r <| apply h2
+
+theorem apply_lean [BI PROP] {P Q R : PROP} (pf : ⊢ Q) (res : P ∗ Q ⊢ R) : P ⊢ R :=
+  sep_emp.mpr.trans <| (sep_mono_r pf).trans res
 
 variable {prop : Q(Type u)} {bi : Q(BI $prop)} in
 partial def iApplyCore
@@ -26,21 +29,30 @@ partial def iApplyCore
   let A2 ← mkFreshExprMVarQ q($prop)
 
   if let some _ ← try? (synthInstanceQ q(IntoWand false false $er $A1 $goal)) then
-    let m ← addGoal hypsl A1
+    -- final apply case
+    let m ← if let (some <| .idents _, some inst) := (spats.head?,
+        ← try? (synthInstanceQ q(FromAssumption false $el $A1))) then
+      pure q(($inst).from_assumption)
+    else
+      addGoal hypsl A1 -- final goal receives all remaining hypotheses
     return q(apply $m)
   if let some _ ← try? (synthInstanceQ q(IntoWand false false $er $A1 $A2)) then
+    -- recursive apply case
     let splitPat := fun name _ => match spats.head? with
       | some <| .idents bIdents => bIdents.any <| binderIdentHasName name
       | none => false
 
     let ⟨el', er', hypsl', hypsr', h'⟩ := Hyps.split bi splitPat hypsl
-    let m ← addGoal hypsr' A1
+    let m ← if let some inst ← try? (synthInstanceQ q(FromAssumption false $er' $A1)) then
+      pure q(($inst).from_assumption)
+    else addGoal hypsr' A1 -- new goal receives hypotheses determined by splitPat
 
     let pf : Q($el ∗ $er ⊢ $el' ∗ $A2) := q(rec_apply $h' $m)
     let res : Q($el' ∗ $A2 ⊢ $goal) ← iApplyCore goal el' A2 hypsl' spats.tail addGoal
 
     return q(.trans $pf $res)
   else
+    -- exact case
     let _ ← synthInstanceQ q(FromAssumption false $er $goal)
     let _ ← synthInstanceQ q(TCOr (Affine $el) (Absorbing $goal))
     return q(assumption (p := false) .rfl)
@@ -51,11 +63,35 @@ elab "iapply" colGt term:pmTerm : tactic => do
 
   mvar.withContext do
     let g ← instantiateMVars <| ← mvar.getType
-    let some { hyps, goal, .. } := parseIrisGoal? g | throwError "not in proof mode"
+    let some { e, hyps, goal, .. } := parseIrisGoal? g | throwError "not in proof mode"
     if let some uniq ← try? do pure (← hyps.findWithInfo term.ident) then
+      -- lemma from iris context
       let ⟨e', hyps', out, _, _, _, pf⟩ := hyps.remove false uniq
 
       let goals ← IO.mkRef #[]
       let res ← iApplyCore goal e' out hyps' term.spats <| goalTracker goals
       mvar.assign <| q(($pf).mp.trans $res)
       replaceMainGoal (← goals.get).toList
+    else
+      -- lemma from lean context
+      let f ← getFVarId term.ident
+      let val := Expr.fvar f
+
+      try
+        -- exact case
+        let ls ← mvar.apply val
+        replaceMainGoal ls
+      catch _ =>
+        -- apply case
+        let some ldecl := (← getLCtx).find? f | throwError "iapply: {term.ident.getId} not in scope"
+
+        match ldecl.type with
+        | .app (.app (.app (.app (.const ``Iris.BI.Entails _) _) _) P) Q =>
+          let hyp ← mkAppM ``Iris.BI.wand #[P, Q]
+          let pf ← mkAppM ``as_emp_valid_1 #[hyp, val]
+
+          let goals ← IO.mkRef #[]
+          let res ← iApplyCore goal e hyp hyps term.spats <| goalTracker goals
+          mvar.assign <| ← mkAppM ``apply_lean #[pf, res]
+          replaceMainGoal (← goals.get).toList
+        | _ => throwError "iapply: {term.ident.getId} is not an entailment"
